@@ -14,7 +14,7 @@ from .data_loader import enter_protein_mdl_dir, enter_protein_data_dir
 
 
 def normalize_project_series(yaml_file, output_folder="normalized_features",
-                             stride=40,nrm=None):
+                             stride=1,nrm=None):
     """
     routine to take a set of proteins features stored in the feature_dir and
     normalize them by removing the mean and setting variance to 1 using the standard
@@ -30,7 +30,7 @@ def normalize_project_series(yaml_file, output_folder="normalized_features",
     yaml_file = load_yaml_file(yaml_file)
     #setup normalizer
     if nrm is None:
-        nrm = preprocessing.StandardScaler()
+        nrm = preprocessing.RobustScaler()
         all_data = {}
         for prt in yaml_file["protein_list"]:
             with enter_protein_data_dir(yaml_file, prt):

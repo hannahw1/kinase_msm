@@ -1,7 +1,7 @@
 #!/bin/env python
 
 from __future__ import print_function
-from msmbuilder.decomposition import tICA,SparseTICA,KSparseTICA
+from msmbuilder.decomposition import tICA,SparseTICA,KSparseTICA,PCA
 from msmbuilder.utils import verboseload, verbosedump
 import glob
 from msmbuilder.msm import BayesianMarkovStateModel, MarkovStateModel
@@ -31,14 +31,19 @@ def fit_protein_tica(yaml_file,sparse=False,ksparse=None):
     for protein in yaml_file["protein_list"]:
         print("Fitting to protein %s" % protein)
         with enter_protein_data_dir(yaml_file, protein):
-            featurized_traj = sorted(glob.glob("./%s/*.jl" %
+            if os.path.exists("./normalized_features"):
+                featurized_traj = sorted(glob.glob("./normalized_features/*.jl"), key=keynat)
+            else:
+                print('Warning: features have not been scaled')
+                featurized_traj = sorted(glob.glob("./%s/*.jl" %
                                                yaml_file["feature_dir"]), key=keynat)
+           
             for f in featurized_traj:
                 featurized_path = verboseload(f)
                 try:
                     protein_tica_mdl.partial_fit(featurized_path)
                 except:
-                    pass
+                    print('Error')
             print("Done partial fitting to protein %s" % protein)
     # dumping the tica_mdl
     tica_mdl_path = os.path.join(mdl_dir, "tica_mdl.pkl")
@@ -50,11 +55,17 @@ def transform_protein_tica(yaml_file):
     mdl_dir = yaml_file["mdl_dir"]
     tica_obj_path = os.path.join(mdl_dir, "tica_mdl.pkl")
     protein_tica_mdl = verboseload(tica_obj_path)
+
     for protein in yaml_file["protein_list"]:
+        print("Fitting to protein %s" % protein)
         with enter_protein_data_dir(yaml_file, protein):
-            print("Transforming protein %s" % protein)
-            featurized_traj = sorted(glob.glob("./%s/*.jl" %
+            if os.path.exists("./normalized_features"):
+                featurized_traj = sorted(glob.glob("./normalized_features/*.jl"), key=keynat)
+            else:
+                print('Warning: features have not been scaled')
+                featurized_traj = sorted(glob.glob("./%s/*.jl" %
                                                yaml_file["feature_dir"]), key=keynat)
+
             tica_data = {}
             for f in featurized_traj:
                 featurized_path = verboseload(f)
@@ -116,7 +127,7 @@ def transform_protein_pca(yaml_file):
                     pca_data[os.path.basename(f)] = \
                         protein_pca_mdl.partial_transform(featurized_path)
                 except:
-                    pass
+                    print('Error')
             with enter_protein_mdl_dir(yaml_file, protein):
                 verbosedump(pca_data, 'pca_data.pkl')
                 print("Done transforming protein %s" % protein)
@@ -126,7 +137,8 @@ def transform_protein_pca(yaml_file):
     verbosedump(protein_pca_mdl, pca_mdl_path)
     return
 
-def fit_protein_kmeans(yaml_file,mini=True):
+#TODO: hacky pca fix
+def fit_protein_kmeans(yaml_file,mini=True,pca=False):
     mdl_dir = yaml_file["mdl_dir"]
     mdl_params = yaml_file["mdl_params"]
 
@@ -144,7 +156,10 @@ def fit_protein_kmeans(yaml_file,mini=True):
 
     for protein in yaml_file["protein_list"]:
         with enter_protein_mdl_dir(yaml_file, protein):
-            tica_data = verboseload("tica_data.pkl")
+            if pca:
+                tica_data = verboseload("pca_data.pkl")
+            else:
+                tica_data = verboseload("tica_data.pkl")
             # get all traj
             sorted_list = sorted(tica_data.keys(), key=keynat)
             data.extend([tica_data[i] for i in sorted_list])
@@ -155,14 +170,18 @@ def fit_protein_kmeans(yaml_file,mini=True):
     return
 
 
-def transform_protein_kmeans(yaml_file):
+def transform_protein_kmeans(yaml_file,pca=False):
     mdl_dir = yaml_file["mdl_dir"]
     kmeans_mdl_path = os.path.join(mdl_dir, "kmeans_mdl.pkl")
     kmeans_mdl = verboseload(kmeans_mdl_path)
     for protein in yaml_file["protein_list"]:
         print("Assigning protein %s" % protein)
         with enter_protein_mdl_dir(yaml_file, protein):
-            tica_data = verboseload("tica_data.pkl")
+            if pca:
+                tica_data = verboseload("pca_data.pkl")
+            else:
+                tica_data = verboseload("tica_data.pkl")
+ 
             # do assignments
             assignments = {}
             for i in tica_data.keys():
