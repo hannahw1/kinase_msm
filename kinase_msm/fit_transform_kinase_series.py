@@ -72,6 +72,59 @@ def transform_protein_tica(yaml_file):
     verbosedump(protein_tica_mdl, tica_mdl_path)
     return
 
+def fit_protein_pca(yaml_file):
+    mdl_dir = yaml_file["mdl_dir"]
+    mdl_params = yaml_file["mdl_params"]
+
+    current_mdl_params={}
+    for i in mdl_params.keys():
+        if i.startswith("pca__"):
+            current_mdl_params[i.split("pca__")[1]] = mdl_params[i]
+
+    protein_pca_mdl = PCA(**current_mdl_params)
+
+    for protein in yaml_file["protein_list"]:
+        print("Fitting to protein %s" % protein)
+        with enter_protein_data_dir(yaml_file, protein):
+            featurized_traj = sorted(glob.glob("./%s/*.jl" %
+                                               yaml_file["feature_dir"]), key=keynat)
+            for f in featurized_traj:
+                featurized_path = verboseload(f)
+                try:
+                    protein_pca_mdl.partial_fit(featurized_path)
+                except:
+                    pass
+            print("Done partial fitting to protein %s" % protein)
+    # dumping the pca_mdl
+    pca_mdl_path = os.path.join(mdl_dir, "pca_mdl.pkl")
+    verbosedump(protein_pca_mdl, pca_mdl_path)
+    return
+
+def transform_protein_pca(yaml_file):
+    mdl_dir = yaml_file["mdl_dir"]
+    pca_obj_path = os.path.join(mdl_dir, "pca_mdl.pkl")
+    protein_pca_mdl = verboseload(pca_obj_path)
+    for protein in yaml_file["protein_list"]:
+        with enter_protein_data_dir(yaml_file, protein):
+            print("Transforming protein %s" % protein)
+            featurized_traj = sorted(glob.glob("./%s/*.jl" %
+                                               yaml_file["feature_dir"]), key=keynat)
+            pca_data = {}
+            for f in featurized_traj:
+                featurized_path = verboseload(f)
+                try:
+                    pca_data[os.path.basename(f)] = \
+                        protein_pca_mdl.partial_transform(featurized_path)
+                except:
+                    pass
+            with enter_protein_mdl_dir(yaml_file, protein):
+                verbosedump(pca_data, 'pca_data.pkl')
+                print("Done transforming protein %s" % protein)
+
+    # dumping the pca_mdl again since the eigenspectrum might have been calculated
+    pca_mdl_path = os.path.join(mdl_dir, "pca_mdl.pkl")
+    verbosedump(protein_pca_mdl, pca_mdl_path)
+    return
 
 def fit_protein_kmeans(yaml_file,mini=True):
     mdl_dir = yaml_file["mdl_dir"]
