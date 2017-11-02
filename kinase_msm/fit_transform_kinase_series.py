@@ -268,7 +268,13 @@ def fit_bayes_msms(yaml_file):
                                                ergodic_cutoff=1.0/msm__lag_time,
                                                verbose=True).fit(
                 [assignments[i] for i in assignments.keys()])
+            _ = msm_mdl.all_eigenvalues_
             verbosedump(msm_mdl, "bayesmsm_mdl.pkl")
+            fixed_assignments = {}
+            for i in assignments.keys():
+                fixed_assignments[i] = msm_mdl.transform(
+                    assignments[i], mode='fill')[0]
+            verbosedump(fixed_assignments, 'fixed_assignments.pkl')
     return
 
 
